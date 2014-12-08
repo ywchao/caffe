@@ -30,7 +30,7 @@ class Thread {
 class InternalThread {
  public:
   InternalThread() : thread_(NULL) {}
-  //virtual ~InternalThread();
+  // virtual ~InternalThread();
 
   /** Returns true if the thread was successfully started. **/
   bool StartInternalThread();
