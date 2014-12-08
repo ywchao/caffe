@@ -4,12 +4,12 @@
 
 namespace caffe {
 
-/*InternalThread::~InternalThread() {
+InternalThread::~InternalThread() {
   WaitForInternalThreadToExit();
   if (thread_ != NULL) {
     delete thread_;
   }
-}*/
+}
 
 bool InternalThread::StartInternalThread() {
   if (!WaitForInternalThreadToExit()) {

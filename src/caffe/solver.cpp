@@ -15,13 +15,15 @@ namespace caffe {
 
 template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param)
-    : net_() {
+    : net_(), is_mempoor(false), is_snaptest(false) {  // [ywchao] memory poor mode
+    // : net_() {
   Init(param);
 }
 
 template <typename Dtype>
 Solver<Dtype>::Solver(const string& param_file)
-    : net_() {
+    : net_(), is_mempoor(false), is_snaptest(false) {  // [ywchao] memory poor mode
+    // : net_() {
   SolverParameter param;
   ReadProtoFromTextFileOrDie(param_file, &param);
   Init(param);
