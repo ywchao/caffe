@@ -32,6 +32,11 @@ class Solver {
     return test_nets_;
   }
 
+  // [ywchao] memory poor mode
+  bool is_mempoor;
+  bool is_snaptest;
+  // int itstep;
+
  protected:
   // PreSolve is run before any solving iteration starts, allowing one to
   // put up some scaffold.

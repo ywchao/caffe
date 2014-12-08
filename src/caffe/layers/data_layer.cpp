@@ -56,9 +56,13 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   case DataParameter_DB_LMDB:
     CHECK_EQ(mdb_env_create(&mdb_env_), MDB_SUCCESS) << "mdb_env_create failed";
     CHECK_EQ(mdb_env_set_mapsize(mdb_env_, 1099511627776), MDB_SUCCESS);  // 1TB
+    // CHECK_EQ(mdb_env_set_mapsize(mdb_env_, 5368709120), MDB_SUCCESS);  // 5GB; [ywchao] prevent memory leak
     CHECK_EQ(mdb_env_open(mdb_env_,
              this->layer_param_.data_param().source().c_str(),
              MDB_RDONLY|MDB_NOTLS, 0664), MDB_SUCCESS) << "mdb_env_open failed";
+    // CHECK_EQ(mdb_env_open(mdb_env_,
+    //          this->layer_param_.data_param().source().c_str(),
+    //          MDB_RDONLY|MDB_NORDAHEAD, 0664), MDB_SUCCESS) << "mdb_env_open failed";  // [ywchao] prevent memory leak
     CHECK_EQ(mdb_txn_begin(mdb_env_, NULL, MDB_RDONLY, &mdb_txn_), MDB_SUCCESS)
         << "mdb_txn_begin failed";
     CHECK_EQ(mdb_open(mdb_txn_, NULL, 0, &mdb_dbi_), MDB_SUCCESS)
@@ -141,6 +145,39 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   this->datum_size_ = datum.channels() * datum.height() * datum.width();
 }
 
+// [ywchao] memory poor mode
+template <typename Dtype>
+void DataLayer<Dtype>::FastForward(const int ffstep) {
+   const int batch_size = this->layer_param_.data_param().batch_size();
+
+   for (int i = 0; i < ffstep; ++i) {
+       // LOG(INFO) << "ff " << i;
+       for (int item_id = 0; item_id < batch_size; ++item_id) {
+           switch (this->layer_param_.data_param().backend()) {
+           case DataParameter_DB_LEVELDB:
+               iter_->Next();
+               if (!iter_->Valid()) {
+                   // We have reached the end. Restart from the first.
+                   DLOG(INFO) << "Restarting data prefetching from start.";
+                   iter_->SeekToFirst();
+               }
+               break;
+           case DataParameter_DB_LMDB:
+               if (mdb_cursor_get(mdb_cursor_, &mdb_key_,
+                                  &mdb_value_, MDB_NEXT) != MDB_SUCCESS) {
+                   // We have reached the end. Restart from the first.
+                   DLOG(INFO) << "Restarting data prefetching from start.";
+                   CHECK_EQ(mdb_cursor_get(mdb_cursor_, &mdb_key_,
+                                           &mdb_value_, MDB_FIRST), MDB_SUCCESS);
+               }
+               break;
+           default:
+               LOG(FATAL) << "Unknown database backend";
+           }
+       }
+   }
+}
+
 // This function is used to create a thread that prefetches the data.
 template <typename Dtype>
 void DataLayer<Dtype>::InternalThreadEntry() {
@@ -177,6 +214,8 @@ void DataLayer<Dtype>::InternalThreadEntry() {
     if (this->output_labels_) {
       top_label[item_id] = datum.label();
     }
+
+    // LOG(INFO) << top_label[item_id];  [ywchao] memory poor mode
 
     // go to the next iter
     switch (this->layer_param_.data_param().backend()) {

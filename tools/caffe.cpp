@@ -30,6 +30,15 @@ DEFINE_string(weights, "",
 DEFINE_int32(iterations, 50,
     "The number of iterations to run.");
 
+// [ywchao] memory poor mode
+DEFINE_bool(mempoor, false,
+    "Run in memory poor mode (for flux)");
+DEFINE_bool(snaptest, false,
+    "Test at snapshot");
+// DEFINE_int32(itstep, 0,
+//     "iteration step size for memory poor mode");
+
+
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();
 typedef std::map<caffe::string, BrewFunction> BrewMap;
@@ -107,6 +116,13 @@ int train() {
   LOG(INFO) << "Starting Optimization";
   shared_ptr<caffe::Solver<float> >
     solver(caffe::GetSolver<float>(solver_param));
+
+  // [ywchao] memory poor mode
+  if (FLAGS_mempoor) {
+    solver->is_mempoor  = true;
+    solver->is_snaptest = FLAGS_snaptest;
+    // solver->itstep      = FLAGS_itstep;
+  }
 
   if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;

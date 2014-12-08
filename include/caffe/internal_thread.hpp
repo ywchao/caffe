@@ -3,6 +3,8 @@
 
 #include "caffe/common.hpp"
 
+//#include <boost/thread.hpp>  // [ywchao]
+
 namespace caffe {
 
 /**
@@ -13,6 +15,7 @@ class Thread {
  public:
   template<typename Callable, class A1>
   Thread(Callable func, A1 a1);
+  // ~Thread();
   void join();
   bool joinable();
  private:
@@ -27,7 +30,7 @@ class Thread {
 class InternalThread {
  public:
   InternalThread() : thread_(NULL) {}
-  virtual ~InternalThread();
+  //virtual ~InternalThread();
 
   /** Returns true if the thread was successfully started. **/
   bool StartInternalThread();
@@ -36,6 +39,11 @@ class InternalThread {
   bool WaitForInternalThreadToExit();
 
   bool is_started() const { return thread_ != NULL && thread_->joinable(); }
+
+  //bool is_new() const { return thread_ == NULL; }
+
+  /** [ywchao] Delete internal thread. **/
+  // bool DeleteInternalThread();
 
  protected:
   /* Implement this method in your subclass

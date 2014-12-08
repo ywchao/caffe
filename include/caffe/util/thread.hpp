@@ -12,6 +12,11 @@ Thread::Thread(Callable func, A1 a1) {
   this->thread_ = new boost::thread(func, a1);
 }
 
+// [ywchao] prevent memory leak
+/* Thread::~Thread() {
+  delete this->thread_;
+}*/
+
 void Thread::join() {
   static_cast<boost::thread*>(this->thread_)->join();
 }

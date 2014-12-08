@@ -497,6 +497,16 @@ void Net<Dtype>::GetLearningRateAndWeightDecay() {
   }
 }
 
+// [ywchao] memory poor mode
+template <typename Dtype>
+void Net<Dtype>::FastForward(const int ffstep) {
+    int start = 0;
+    int end   = layers_.size() - 1;
+    for (int i = start; i <= end; ++i) {
+        layers_[i]->FastForward(ffstep);
+    }
+}
+
 template <typename Dtype>
 Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
   CHECK_GE(start, 0);

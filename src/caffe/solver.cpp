@@ -172,16 +172,39 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // For a network that is trained by the solver, no bottom or top vecs
   // should be given, and we will just provide dummy vecs.
   vector<Blob<Dtype>*> bottom_vec;
+
+  // [ywchao] memory poor mode
+  if (is_mempoor) {
+      int ffstep = iter_;
+      net_->FastForward(ffstep);
+  }
+
   for (; iter_ < param_.max_iter(); ++iter_) {
     // Save a snapshot if needed.
     if (param_.snapshot() && iter_ > start_iter &&
         iter_ % param_.snapshot() == 0) {
       Snapshot();
+
+      // [ywchao] memory poor mode
+      if (is_mempoor) {
+          return;
+      }
     }
 
-    if (param_.test_interval() && iter_ % param_.test_interval() == 0
+    // [ywchao] memory poor mode
+    /*if (param_.test_interval() && iter_ % param_.test_interval() == 0
         && (iter_ > 0 || param_.test_initialization())) {
       TestAll();
+    }*/
+    if ((is_mempoor && is_snaptest) ||
+            (!is_mempoor
+             && param_.test_interval() && iter_ % param_.test_interval() == 0
+             && (iter_ > 0 || param_.test_initialization()))) {
+      TestAll();
+
+      if (is_mempoor && is_snaptest) {
+          return;
+      }
     }
 
     const bool display = param_.display() && iter_ % param_.display() == 0;

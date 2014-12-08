@@ -87,6 +87,7 @@ class BasePrefetchingDataLayer :
 
   virtual void CreatePrefetchThread();
   virtual void JoinPrefetchThread();
+  // virtual void DeletePrefetchThread();  // [ywchao] prevent memory leak
   // The thread's function
   virtual void InternalThreadEntry() {}
 
@@ -103,6 +104,8 @@ class DataLayer : public BasePrefetchingDataLayer<Dtype> {
   virtual ~DataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top);
+
+  void FastForward(const int ffstep);  // [ywchao] memory poor mode
 
   virtual inline LayerParameter_LayerType type() const {
     return LayerParameter_LayerType_DATA;

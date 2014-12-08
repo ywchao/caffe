@@ -116,6 +116,7 @@ leveldb::Options GetLevelDBOptions() {
   // in order to avoid using up the operating system's limit.
   leveldb::Options options;
   options.max_open_files = 100;
+  // options.max_open_files = 3;  // [ywchao] prevent memory leak
   return options;
 }
 

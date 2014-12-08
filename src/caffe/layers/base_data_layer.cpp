@@ -78,11 +78,26 @@ void BasePrefetchingDataLayer<Dtype>::JoinPrefetchThread() {
   CHECK(WaitForInternalThreadToExit()) << "Thread joining failed";
 }
 
+// [ywchao] prevent memory leak
+/*template <typename Dtype>
+void BasePrefetchingDataLayer<Dtype>::DeletePrefetchThread() {
+  CHECK(DeleteInternalThread()) << "Thread deletion failed";
+}*/
+
 template <typename Dtype>
 void BasePrefetchingDataLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
   // First, join the thread
   JoinPrefetchThread();
+
+  // [ywchao] prevent memory leak  
+  // DeletePrefetchThread();
+
+  // Deleted the thread
+  /*if (!this->is_new()) {
+    DeletePrefetchThread();
+  }*/
+
   // Copy the data
   caffe_copy(prefetch_data_.count(), prefetch_data_.cpu_data(),
              (*top)[0]->mutable_cpu_data());

@@ -9,6 +9,15 @@ void BasePrefetchingDataLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
   // First, join the thread
   JoinPrefetchThread();
+ 
+  // [ywchao] prevent memory leak 
+  // DeletePrefetchThread();
+
+  // Delete the thread
+  /*if (!this->is_new()) {
+    DeletePrefetchThread();
+  }*/
+
   // Copy the data
   caffe_copy(prefetch_data_.count(), prefetch_data_.cpu_data(),
       (*top)[0]->mutable_gpu_data());

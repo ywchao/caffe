@@ -63,6 +63,8 @@ class Layer {
     SetLossWeights(top);
   }
 
+   virtual void FastForward(const int ffstep) {}  // [ywchao] memory poor mode
+
   /**
    * @brief Does layer-specific setup: your layer should implement this function
    *        as well as Reshape.
