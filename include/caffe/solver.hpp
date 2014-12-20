@@ -35,7 +35,9 @@ class Solver {
   // [ywchao] memory poor mode
   bool is_mempoor;
   bool is_snaptest;
-  // int itstep;
+  bool is_runtest;
+  int runtest_sid;
+  int runtest_intv;
 
  protected:
   // PreSolve is run before any solving iteration starts, allowing one to

@@ -35,8 +35,12 @@ DEFINE_bool(mempoor, false,
     "Run in memory poor mode (for flux)");
 DEFINE_bool(snaptest, false,
     "Test at snapshot");
-// DEFINE_int32(itstep, 0,
-//     "iteration step size for memory poor mode");
+DEFINE_bool(runtest, false,
+    "Run test on trained models");
+DEFINE_int32(runtestsid, 0,
+    "Run test on trained models");
+DEFINE_int32(runtestintv, 0,
+    "Run test on trained models");
 
 
 // A simple registry for caffe commands.
@@ -121,7 +125,15 @@ int train() {
   if (FLAGS_mempoor) {
     solver->is_mempoor  = true;
     solver->is_snaptest = FLAGS_snaptest;
-    // solver->itstep      = FLAGS_itstep;
+    solver->is_runtest  = FLAGS_runtest;
+    if (FLAGS_runtest) {
+        if (FLAGS_runtestsid == 0) {
+            solver->runtest_sid  = FLAGS_runtestintv;
+        } else {
+            solver->runtest_sid  = FLAGS_runtestsid;
+        }
+        solver->runtest_intv = FLAGS_runtestintv;
+    }
   }
 
   if (FLAGS_snapshot.size()) {

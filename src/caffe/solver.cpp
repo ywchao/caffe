@@ -11,18 +11,20 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/upgrade_proto.hpp"
 
+#include <fcntl.h>  // [ywchao] memory poor mode
+
 namespace caffe {
 
 template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param)
-    : net_(), is_mempoor(false), is_snaptest(false) {  // [ywchao] memory poor mode
+    : net_(), is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0) {  // [ywchao] memory poor mode
     // : net_() {
   Init(param);
 }
 
 template <typename Dtype>
 Solver<Dtype>::Solver(const string& param_file)
-    : net_(), is_mempoor(false), is_snaptest(false) {  // [ywchao] memory poor mode
+    : net_(), is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0) {  // [ywchao] memory poor mode
     // : net_() {
   SolverParameter param;
   ReadProtoFromTextFileOrDie(param_file, &param);
@@ -175,6 +177,27 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // should be given, and we will just provide dummy vecs.
   vector<Blob<Dtype>*> bottom_vec;
 
+  // [ywchao] memory poor mode: runtest
+  if (is_mempoor && is_runtest) {
+      for (int i = runtest_sid; i <= param_.max_iter(); i += runtest_intv) {
+          string filename(param_.snapshot_prefix());
+          const int kBufferSize = 20;
+          char iter_str_buffer[kBufferSize];
+          snprintf(iter_str_buffer, kBufferSize, "_iter_%d", i);
+          filename += iter_str_buffer;
+          filename += ".solverstate";
+          const char* snapshot_filename = filename.c_str();
+
+          LOG(INFO) << snapshot_filename;
+          int fd = open(snapshot_filename, O_RDONLY);
+          if (fd == -1) { return; }
+          Restore(snapshot_filename);
+
+          TestAll();
+      }
+      return;
+  }
+
   // [ywchao] memory poor mode
   if (is_mempoor) {
       int ffstep = iter_;
@@ -252,6 +275,10 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     net_->Forward(bottom_vec, &loss);
     LOG(INFO) << "Iteration " << iter_ << ", loss = " << loss;
   }
+  // [ywchao] memory poor mode
+  if (is_mempoor && !is_snaptest) {
+      return;
+  }
   if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
     TestAll();
   }
@@ -283,7 +310,7 @@ void Solver<Dtype>::Test(const int test_net_id) {
   for (int i = 0; i < param_.test_iter(test_net_id); ++i) {
     Dtype iter_loss;
     const vector<Blob<Dtype>*>& result =
-        test_net->Forward(bottom_vec, &iter_loss);
+        test_net->Forward(bottom_vec, &iter_loss);  // [ywchao] must be something wrong here (random or something else), since the result of runtest changes every time
     if (param_.test_compute_loss()) {
       loss += iter_loss;
     }
@@ -293,6 +320,7 @@ void Solver<Dtype>::Test(const int test_net_id) {
         for (int k = 0; k < result[j]->count(); ++k) {
           test_score.push_back(result_vec[k]);
           test_score_output_id.push_back(j);
+          // if (j == 0) {LOG(INFO) << "i = " << i << "  res: " << result_vec[k];};  // [ywchao] for debugging
         }
       }
     } else {
@@ -301,6 +329,7 @@ void Solver<Dtype>::Test(const int test_net_id) {
         const Dtype* result_vec = result[j]->cpu_data();
         for (int k = 0; k < result[j]->count(); ++k) {
           test_score[idx++] += result_vec[k];
+          // if (j == 0) {LOG(INFO) << "i = " << i << "  res: " << result_vec[k];};  // [ywchao] for debugging
         }
       }
     }
