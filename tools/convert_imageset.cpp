@@ -127,6 +127,7 @@ int main(int argc, char** argv) {
   bool data_size_initialized = false;
 
   for (int line_id = 0; line_id < lines.size(); ++line_id) {
+    // LOG(INFO) << root_folder + lines[line_id].first;  [ywchao] debug imagenet_fall11_whole
     if (!ReadImageToDatum(root_folder + lines[line_id].first,
         lines[line_id].second, resize_height, resize_width, is_color, &datum)) {
       continue;
