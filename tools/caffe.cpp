@@ -135,6 +135,7 @@ int train() {
         solver->runtest_intv = FLAGS_runtestintv;
     }
   }
+  solver->Init(solver_param);
 
   if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;
