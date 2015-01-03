@@ -19,7 +19,7 @@ template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param)
     : net_(), is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0) {  // [ywchao] memory poor mode
     // : net_() {
-  Init(param);
+  // Init(param);  // [ywchao] memory poor mode
 }
 
 template <typename Dtype>
@@ -28,7 +28,7 @@ Solver<Dtype>::Solver(const string& param_file)
     // : net_() {
   SolverParameter param;
   ReadProtoFromTextFileOrDie(param_file, &param);
-  Init(param);
+  // Init(param);  // [ywchao] memory poor mode
 }
 
 template <typename Dtype>
@@ -40,8 +40,13 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
     Caffe::set_random_seed(param_.random_seed());
   }
   // Scaffolding code
+  // InitTrainNet();
+  // InitTestNets();
+  // [ywchao] memory poor mode
   InitTrainNet();
-  InitTestNets();
+  if (!is_mempoor || (is_mempoor && (is_runtest || is_snaptest))) {
+     InitTestNets();
+  }
   LOG(INFO) << "Solver scaffolding done.";
 }
 
