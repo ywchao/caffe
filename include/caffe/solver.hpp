@@ -17,6 +17,7 @@ namespace caffe {
 template <typename Dtype>
 class Solver {
  public:
+  // explicit Solver();
   explicit Solver(const SolverParameter& param);
   explicit Solver(const string& param_file);
   void Init(const SolverParameter& param);
@@ -38,6 +39,9 @@ class Solver {
   bool is_runtest;
   int runtest_sid;
   int runtest_intv;
+
+  // [ywchao] skip test mode
+  bool is_skiptest;
 
  protected:
   // PreSolve is run before any solving iteration starts, allowing one to
