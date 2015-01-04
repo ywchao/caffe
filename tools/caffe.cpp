@@ -42,6 +42,10 @@ DEFINE_int32(runtestsid, 0,
 DEFINE_int32(runtestintv, 0,
     "Run test on trained models");
 
+// [ywchao] skip test mode
+DEFINE_bool(skiptest, false,
+    "Skip test.");
+
 
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();
@@ -120,7 +124,8 @@ int train() {
   LOG(INFO) << "Starting Optimization";
   shared_ptr<caffe::Solver<float> >
     solver(caffe::GetSolver<float>(solver_param));
-
+  // shared_ptr<caffe::Solver<float> > solver();
+  
   // [ywchao] memory poor mode
   if (FLAGS_mempoor) {
     solver->is_mempoor  = true;
@@ -135,6 +140,12 @@ int train() {
         solver->runtest_intv = FLAGS_runtestintv;
     }
   }
+  // [ywchao] skip test mode
+  if (FLAGS_skiptest) {
+      solver->is_skiptest = true;
+  }
+  
+  caffe::GetSolver<float>(solver_param);
   solver->Init(solver_param);
 
   if (FLAGS_snapshot.size()) {

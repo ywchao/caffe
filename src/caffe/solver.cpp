@@ -15,20 +15,31 @@
 
 namespace caffe {
 
+/*template <typename Dtype>
+Solver<Dtype>::Solver()
+    : net_(),
+    is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0),  // [ywchao] memory poor mode
+    is_skiptest(false) {  // [ywchao] skip test mode
+}*/
+
 template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param)
-    : net_(), is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0) {  // [ywchao] memory poor mode
+    : net_(),
+    is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0),  // [ywchao] memory poor mode
+    is_skiptest(false) {  // [ywchao] skip test mode
     // : net_() {
-  // Init(param);  // [ywchao] memory poor mode
+  // Init(param);  // [ywchao] bug: find a way to uncomment it; ow.w make runtest can not compile
 }
 
 template <typename Dtype>
 Solver<Dtype>::Solver(const string& param_file)
-    : net_(), is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0) {  // [ywchao] memory poor mode
+    : net_(),
+    is_mempoor(false), is_snaptest(false), is_runtest(false), runtest_sid(0), runtest_intv(0),  // [ywchao] memory poor mode
+    is_skiptest(false) {  // [ywchao] skip test mode
     // : net_() {
   SolverParameter param;
   ReadProtoFromTextFileOrDie(param_file, &param);
-  // Init(param);  // [ywchao] memory poor mode
+  // Init(param);  // [ywchao] bug: find a way to uncomment it; ow.w make runtest can not compile
 }
 
 template <typename Dtype>
@@ -44,7 +55,7 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
   // InitTestNets();
   // [ywchao] memory poor mode
   InitTrainNet();
-  if (!is_mempoor || (is_mempoor && (is_runtest || is_snaptest))) {
+  if ((!is_mempoor && !is_skiptest) || (is_mempoor && (is_runtest || is_snaptest))) {
      InitTestNets();
   }
   LOG(INFO) << "Solver scaffolding done.";
@@ -227,7 +238,7 @@ void Solver<Dtype>::Solve(const char* resume_file) {
       TestAll();
     }*/
     if ((is_mempoor && is_snaptest) ||
-            (!is_mempoor
+            (!is_mempoor && !is_skiptest
              && param_.test_interval() && iter_ % param_.test_interval() == 0
              && (iter_ > 0 || param_.test_initialization()))) {
       TestAll();
@@ -284,7 +295,9 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   if (is_mempoor && !is_snaptest) {
       return;
   }
-  if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
+  // [ywchao] skip test mode
+  // if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
+  if (!is_skiptest && param_.test_interval() && iter_ % param_.test_interval() == 0) {
     TestAll();
   }
   LOG(INFO) << "Optimization Done.";
