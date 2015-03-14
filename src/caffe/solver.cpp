@@ -326,6 +326,10 @@ void Solver<Dtype>::Test(const int test_net_id) {
   const shared_ptr<Net<Dtype> >& test_net = test_nets_[test_net_id];
   Dtype loss = 0;
   for (int i = 0; i < param_.test_iter(test_net_id); ++i) {
+    // [TBD][ywchao] for fall11_whole
+    if ((i+1) % 1000 == 0) {
+      LOG(INFO) << "  " << i+1 << "/" << param_.test_iter(test_net_id);
+    }
     Dtype iter_loss;
     const vector<Blob<Dtype>*>& result =
         test_net->Forward(bottom_vec, &iter_loss);  // [ywchao] must be something wrong here (random or something else), since the result of runtest changes every time
