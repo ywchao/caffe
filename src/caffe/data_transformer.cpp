@@ -1,4 +1,5 @@
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include <string>
 #include <vector>
@@ -30,6 +31,12 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
       "Cannot specify mean_file and mean_value at the same time";
     for (int c = 0; c < param_.mean_value_size(); ++c) {
       mean_values_.push_back(param_.mean_value(c));
+    }
+  }
+  // check if we want to use resize_value
+  if (param_.resize_value_size() > 0) {
+    for (int c = 0; c < param_.resize_value_size(); ++c) {
+      resize_values_.push_back(param_.resize_value(c));
     }
   }
 }
@@ -522,6 +529,170 @@ int DataTransformer<Dtype>::Rand(int n) {
   caffe::rng_t* rng =
       static_cast<caffe::rng_t*>(rng_->generator());
   return ((*rng)() % n);
+}
+
+template<typename Dtype>
+void DataTransformer<Dtype>::InferBlobShape(const Datum& datum,
+                                            vector<vector<int> > & top_shape_vector) {
+  CHECK(datum.encoded())
+      << "Image resizing only supports encoded datum inputs";
+  CHECK_EQ(top_shape_vector.size(),resize_values_.size())
+      << "Number of data top blobs does not match the number of resize values";
+  CHECK(!(param_.force_color() && param_.force_gray()))
+      << "cannot set both force_color and force_gray";
+  cv::Mat cv_img;
+  if (param_.force_color() || param_.force_gray()) {
+    // If force_color then decode in color otherwise decode in gray.
+    cv_img = DecodeDatumToCVMat(datum, param_.force_color());
+  } else {
+    cv_img = DecodeDatumToCVMatNative(datum);
+  }
+  // Get image parameters
+  const int crop_size = param_.crop_size();
+  const int img_channels = cv_img.channels();
+  const int img_height = cv_img.rows;
+  const int img_width = cv_img.cols;
+  // Check dimensions.
+  CHECK_GT(img_channels, 0);
+  CHECK_GE(img_height, crop_size);
+  CHECK_GE(img_width, crop_size);
+  for (int i = 0; i < top_shape_vector.size(); ++i) {
+    // Calculate resized image sizes
+    const int crop_size_rs(resize_values_[i] == 1 ? crop_size :
+        static_cast<int>(round(static_cast<float>(crop_size) * resize_values_[i])));
+    const int img_height_rs(resize_values_[i] == 1 ? cv_img.rows :
+        static_cast<int>(round(static_cast<float>(cv_img.rows) * resize_values_[i])));
+    const int img_width_rs(resize_values_[i] == 1 ? cv_img.cols :
+        static_cast<int>(round(static_cast<float>(cv_img.cols) * resize_values_[i])));
+    // Build BlobShape.
+    vector<int> shape(4);
+    shape[0] = 1;
+    shape[1] = img_channels;
+    shape[2] = (crop_size_rs)? crop_size_rs: img_height_rs;
+    shape[3] = (crop_size_rs)? crop_size_rs: img_width_rs;
+    top_shape_vector[i] = shape;
+  }
+}
+
+template<typename Dtype>
+void DataTransformer<Dtype>::Transform(const Datum& datum,
+                                       vector<Blob<Dtype>*> transformed_blob_vector) {
+  CHECK(datum.encoded())
+      << "Image resizing only supports encoded datum inputs";
+  CHECK_EQ(transformed_blob_vector.size(),resize_values_.size())
+      << "Number of data top blobs does not match the number of resize values";
+  CHECK(!(param_.force_color() && param_.force_gray()))
+      << "cannot set both force_color and force_gray";
+  cv::Mat cv_img;
+  if (param_.force_color() || param_.force_gray()) {
+    // If force_color then decode in color otherwise decode in gray.
+    cv_img = DecodeDatumToCVMat(datum, param_.force_color());
+  } else {
+    cv_img = DecodeDatumToCVMatNative(datum);
+  }
+
+  const int crop_size = param_.crop_size();
+  const int img_channels = cv_img.channels();
+  const int img_height = cv_img.rows;
+  const int img_width = cv_img.cols;
+
+  CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
+
+  const Dtype scale = param_.scale();
+  const bool do_mirror = param_.mirror() && Rand(2);
+  const bool has_mean_file = param_.has_mean_file();
+  const bool has_mean_values = mean_values_.size() > 0;
+
+  CHECK_GT(img_channels, 0);
+  CHECK_GE(img_height, crop_size);
+  CHECK_GE(img_width, crop_size);
+
+  Dtype* mean = NULL;
+  if (has_mean_file) {
+    CHECK_EQ(img_channels, data_mean_.channels());
+    CHECK_EQ(img_height, data_mean_.height());
+    CHECK_EQ(img_width, data_mean_.width());
+    mean = data_mean_.mutable_cpu_data();
+  }
+  if (has_mean_values) {
+    CHECK(mean_values_.size() == 1 || mean_values_.size() == img_channels) <<
+     "Specify either 1 mean_value or as many as channels: " << img_channels;
+    if (img_channels > 1 && mean_values_.size() == 1) {
+      // Replicate the mean_value for simplicity
+      for (int c = 1; c < img_channels; ++c) {
+        mean_values_.push_back(mean_values_[0]);
+      }
+    }
+  }
+
+  int h_off = 0;
+  int w_off = 0;
+  cv::Mat cv_cropped_img = cv_img;
+  if (crop_size) {
+    // We only do random crop when we do training.
+    if (phase_ == TRAIN) {
+      h_off = Rand(img_height - crop_size + 1);
+      w_off = Rand(img_width - crop_size + 1);
+    } else {
+      h_off = (img_height - crop_size) / 2;
+      w_off = (img_width - crop_size) / 2;
+    }
+    cv::Rect roi(w_off, h_off, crop_size, crop_size);
+    cv_cropped_img = cv_img(roi);
+  }
+
+  CHECK(cv_cropped_img.data);
+
+  cv::Mat cv_resized_img;
+  for (int i = 0; i < transformed_blob_vector.size(); ++i) {
+    // Resize cropped image
+    const Dtype resize_val = resize_values_[i];
+    if (resize_val != 1) {
+      resize(cv_cropped_img, cv_resized_img, cv::Size(),
+          resize_values_[i], resize_values_[i]);
+    } else {
+      cv_resized_img = cv_cropped_img;
+    }
+    // Check dimensions
+    const int channels = transformed_blob_vector[i]->channels();
+    const int height = transformed_blob_vector[i]->height();
+    const int width = transformed_blob_vector[i]->width();
+    const int num = transformed_blob_vector[i]->num();
+    CHECK_EQ(cv_resized_img.channels(), channels);
+    CHECK_EQ(cv_resized_img.rows, height);
+    CHECK_EQ(cv_resized_img.cols, width);
+    CHECK_GE(num, 1);
+
+    Dtype* transformed_data = transformed_blob_vector[i]->mutable_cpu_data();
+    int top_index;
+    for (int h = 0; h < height; ++h) {
+      const uchar* ptr = cv_cropped_img.ptr<uchar>(h);
+      int img_index = 0;
+      for (int w = 0; w < width; ++w) {
+        for (int c = 0; c < img_channels; ++c) {
+          if (do_mirror) {
+            top_index = (c * height + h) * width + (width - 1 - w);
+          } else {
+            top_index = (c * height + h) * width + w;
+          }
+          // int top_index = (c * height + h) * width + w;
+          Dtype pixel = static_cast<Dtype>(ptr[img_index++]);
+          if (has_mean_file) {
+            int mean_index = (c * img_height + h_off + h) * img_width + w_off + w;
+            transformed_data[top_index] =
+              (pixel - mean[mean_index]) * scale;
+          } else {
+            if (has_mean_values) {
+              transformed_data[top_index] =
+                (pixel - mean_values_[c]) * scale;
+            } else {
+              transformed_data[top_index] = pixel * scale;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 INSTANTIATE_CLASS(DataTransformer);

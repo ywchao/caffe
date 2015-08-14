@@ -374,6 +374,8 @@ message TransformationParameter {
   optional bool force_color = 6 [default = false];
   // Force the decoded image to have 1 color channels.
   optional bool force_gray = 7 [default = false];
+  // Resize image
+  repeated float resize_value = 8;
 }
 
 // Message that stores parameters shared by loss layers

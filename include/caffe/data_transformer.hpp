@@ -123,6 +123,16 @@ class DataTransformer {
    */
   vector<int> InferBlobShape(const cv::Mat& cv_img);
 
+  /**
+   * @brief Infer the shape of tranformed blobs for data pyramid
+   */
+  void InferBlobShape(const Datum& datum,
+                     vector<vector<int> > & top_shape_vector);
+  /**
+   * @brief Applies the transformation for data pyramid
+   */
+  void Transform(const Datum& datum, vector<Blob<Dtype>*> transformed_blob);
+
  protected:
    /**
    * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
@@ -143,6 +153,7 @@ class DataTransformer {
   Phase phase_;
   Blob<Dtype> data_mean_;
   vector<Dtype> mean_values_;
+  vector<Dtype> resize_values_;
 };
 
 }  // namespace caffe

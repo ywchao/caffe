@@ -322,6 +322,56 @@ class WindowDataLayer : public BasePrefetchingDataLayer<Dtype> {
   vector<std::pair<std::string, Datum > > image_database_cache_;
 };
 
+template <typename Dtype>
+class BasePrefetchingDataPyramidLayer :
+    public BaseDataLayer<Dtype>, public InternalThread {
+ public:
+  explicit BasePrefetchingDataPyramidLayer(const LayerParameter& param)
+      : BaseDataLayer<Dtype>(param) {}
+  // LayerSetUp: implements common data layer setup functionality, and calls
+  // DataLayerSetUp to do special data layer setup for individual layer types.
+  // This method may not be overridden.
+  void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual void CreatePrefetchThread();
+  virtual void JoinPrefetchThread();
+  // The thread's function
+  virtual void InternalThreadEntry() {}
+
+ protected:
+  vector<Blob<Dtype>*> prefetch_data_vector_;
+  vector<Blob<Dtype>*> transformed_data_vector_;
+  Blob<Dtype> prefetch_label_;
+};
+
+template <typename Dtype>
+class DataPyramidLayer : public BasePrefetchingDataPyramidLayer<Dtype> {
+ public:
+  explicit DataPyramidLayer(const LayerParameter& param)
+      : BasePrefetchingDataPyramidLayer<Dtype>(param) {}
+  virtual ~DataPyramidLayer();
+  virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual inline const char* type() const { return "DataPyramid"; }
+  virtual inline int ExactNumBottomBlobs() const { return 0; }
+  virtual inline int MinTopBlobs() const { return 1; }
+  // Set maximum top blobs
+  virtual inline int MaxTopBlobs() const { return 7; }
+
+ protected:
+  virtual void InternalThreadEntry();
+
+  shared_ptr<db::DB> db_;
+  shared_ptr<db::Cursor> cursor_;
+};
+
 }  // namespace caffe
 
 #endif  // CAFFE_DATA_LAYERS_HPP_
