@@ -666,7 +666,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
     Dtype* transformed_data = transformed_blob_vector[i]->mutable_cpu_data();
     int top_index;
     for (int h = 0; h < height; ++h) {
-      const uchar* ptr = cv_cropped_img.ptr<uchar>(h);
+      const uchar* ptr = cv_resized_img.ptr<uchar>(h);
       int img_index = 0;
       for (int w = 0; w < width; ++w) {
         for (int c = 0; c < img_channels; ++c) {
