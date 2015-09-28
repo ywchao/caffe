@@ -12,6 +12,7 @@
 #include <fstream>  // NOLINT(readability/streams)
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -111,33 +112,68 @@ static bool matchExt(const std::string & fn,
     return true;
   return false;
 }
-bool ReadImageToDatum(const string& filename, const int label,
-    const int height, const int width, const bool is_color,
-    const std::string & encoding, Datum* datum) {
+
+bool ReadImageToDatum(const string& filename, const int height, 
+    const int width, const bool is_color, const std::string& encoding, 
+    Datum* datum) {
   cv::Mat cv_img = ReadImageToCVMat(filename, height, width, is_color);
   if (cv_img.data) {
     if (encoding.size()) {
       if ( (cv_img.channels() == 3) == is_color && !height && !width &&
           matchExt(filename, encoding) )
-        return ReadFileToDatum(filename, label, datum);
+        return ReadFileToDatum(filename, datum);
       std::vector<uchar> buf;
       cv::imencode("."+encoding, cv_img, buf);
       datum->set_data(std::string(reinterpret_cast<char*>(&buf[0]),
                       buf.size()));
-      datum->set_label(label);
       datum->set_encoded(true);
       return true;
     }
     CVMatToDatum(cv_img, datum);
-    datum->set_label(label);
     return true;
   } else {
     return false;
   }
 }
 
-bool ReadFileToDatum(const string& filename, const int label,
-    Datum* datum) {
+bool ReadImageToDatum(const string& filename, const int label,
+    const int height, const int width, const bool is_color,
+    const std::string & encoding, Datum* datum) {
+  if (ReadImageToDatum(filename, height, width, is_color, encoding, datum)) {
+    if (datum->label_size() > 0) {
+      datum->set_label(0, label);
+    } else {
+      datum->add_label(label);
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool ReadImageToDatum(const string& filename, const std::vector<int> labels,
+    const int height, const int width, const bool is_color,
+    const std::string &encoding, Datum* datum) {
+  if (labels.size() > 0) {
+    if (ReadImageToDatum(filename, height, width, is_color, encoding, datum)) {
+      for (int i = 0; i < labels.size(); ++i) {
+        if (datum->label_size() <= i) {
+          datum->add_label(labels[i]);
+        } else {
+          datum->set_label(i, labels[i]);
+        }
+      }
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+    return ReadImageToDatum(filename, height, width, is_color, encoding, 
+                            datum);
+  }
+}
+
+bool ReadFileToDatum(const string& filename, Datum* datum) {
   std::streampos size;
 
   fstream file(filename.c_str(), ios::in|ios::binary|ios::ate);
@@ -148,12 +184,55 @@ bool ReadFileToDatum(const string& filename, const int label,
     file.read(&buffer[0], size);
     file.close();
     datum->set_data(buffer);
-    datum->set_label(label);
     datum->set_encoded(true);
     return true;
   } else {
     return false;
   }
+}
+
+bool ReadFileToDatum(const string& filename, const int label, Datum* datum) {
+  if (ReadFileToDatum(filename, datum)) {
+    datum->add_label(label);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void ReadImagesList(const string& source,
+    std::vector<std::pair<std::string, std::vector<int> > >* images_vec) {
+  LOG(INFO) << "Opening file " << source;
+  std::ifstream infile(source.c_str());
+  CHECK(infile) << "Error in opening file";
+
+  std:: string line;
+  int line_num = 1;
+  int num_labels = 0;
+
+  while (std::getline(infile, line)) {
+    std::istringstream iss(line);
+    string filename;
+    std::vector<int> labels;
+    int label;
+
+    CHECK(iss >> filename) << "Error in reading line " << line_num;
+    while (iss >> label) {
+      labels.push_back(label);
+    }
+
+    if (line_num == 1) {
+      num_labels = labels.size();
+    }
+    CHECK_EQ(labels.size(), num_labels)
+        << filename << " error at line " << line_num << std::endl
+        << " All images should have same number of labels";
+
+    ++line_num;
+    images_vec->push_back(std::make_pair(filename, labels));
+  }
+  LOG(INFO) << "Read " << line_num - 1 << " images with "
+      << num_labels << "labels";
 }
 
 cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {

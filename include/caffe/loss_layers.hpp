@@ -89,6 +89,36 @@ class AccuracyLayer : public Layer<Dtype> {
 };
 
 /**
+ * @brief MultiLabelAccuracyLayer; adopted from sguada:multi-label-windows;
+ *        originally used for multiple binary label accuracy; here I am using
+ *        this just for single binary label case
+ */
+template <typename Dtype>
+class MultiLabelAccuracyLayer : public Layer<Dtype> {
+ public:
+  explicit MultiLabelAccuracyLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual inline const char* type() const { return "MultiLabelAccuracy"; }
+  virtual inline int ExactNumBottomBlobs() const { return 2; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+    for (int i = 0; i < propagate_down.size(); ++i) {
+      if (propagate_down[i]) { NOT_IMPLEMENTED; }
+    }
+  }
+};
+
+/**
  * @brief An interface for Layer%s that take two Blob%s as input -- usually
  *        (1) predictions and (2) ground-truth labels -- and output a
  *        singleton Blob representing the loss.

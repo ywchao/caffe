@@ -39,7 +39,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
   // Fill the DB with data: if unique_pixels, each pixel is unique but
   // all images are the same; else each image is unique but all pixels within
   // an image are the same.
-  void Fill(const bool unique_pixels, DataParameter_DB backend) {
+  void Fill(const bool unique_pixels, DataParameter_DB backend, const bool multilabel = false) {
     backend_ = backend;
     LOG(INFO) << "Using temporary dataset " << *filename_;
     scoped_ptr<db::DB> db(db::GetDB(backend));
@@ -47,7 +47,14 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     scoped_ptr<db::Transaction> txn(db->NewTransaction());
     for (int i = 0; i < 5; ++i) {
       Datum datum;
-      datum.set_label(i);
+      if (multilabel) {
+        for (int l = 0; l < 5; ++l) {
+          if (l == i) datum.add_label(1);
+          else datum.add_label(0);
+        }
+      } else {
+        datum.add_label(i);
+      }
       datum.set_channels(2);
       datum.set_height(3);
       datum.set_width(4);
@@ -113,7 +120,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     scoped_ptr<db::Transaction> txn(db->NewTransaction());
     for (int i = 0; i < num_inputs; ++i) {
       Datum datum;
-      datum.set_label(i);
+      datum.add_label(i);
       datum.set_channels(2);
       datum.set_height(i % 2 + 1);
       datum.set_width(i % 4 + 1);

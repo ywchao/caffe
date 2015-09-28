@@ -3,6 +3,8 @@
 
 #include <unistd.h>
 #include <string>
+#include <vector>
+#include <utility>
 
 #include "google/protobuf/message.h"
 #include "hdf5.h"
@@ -87,9 +89,11 @@ inline void WriteProtoToBinaryFile(
 
 bool ReadFileToDatum(const string& filename, const int label, Datum* datum);
 
-inline bool ReadFileToDatum(const string& filename, Datum* datum) {
-  return ReadFileToDatum(filename, -1, datum);
-}
+bool ReadFileToDatum(const string& filename, Datum* datum);
+
+bool ReadImageToDatum(const string& filename, const std::vector<int> labels,
+    const int height, const int width, const bool is_color,
+    const std::string & encoding, Datum* datum);
 
 bool ReadImageToDatum(const string& filename, const int label,
     const int height, const int width, const bool is_color,
@@ -120,6 +124,9 @@ inline bool ReadImageToDatum(const string& filename, const int label,
     const std::string & encoding, Datum* datum) {
   return ReadImageToDatum(filename, label, 0, 0, true, encoding, datum);
 }
+
+void ReadImagesList(const string& source,
+    std::vector<std::pair<std::string, std::vector<int> > >* images_vec);
 
 bool DecodeDatumNative(Datum* datum);
 bool DecodeDatum(Datum* datum, bool is_color);
